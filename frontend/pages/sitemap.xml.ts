@@ -7,8 +7,16 @@ const API_BASE_URL = (() => {
   return raw.endsWith('/') ? raw : `${raw}/`
 })()
 
+type SitemapEntry = {
+  loc: string
+  lastmod?: string
+  changefreq: string
+  priority: string
+}
+
 type BlogPost = {
   slug: string
+  updated_at?: string
   created_at?: string
 }
 
@@ -21,19 +29,28 @@ function escapeXml(value: string): string {
     .replace(/'/g, '&apos;')
 }
 
+function latestBlogTimestamp(posts: BlogPost[]): string | undefined {
+  return posts
+    .map((post) => post.updated_at || post.created_at)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1)
+}
+
 function buildSitemap(posts: BlogPost[]): string {
-  const now = new Date().toISOString()
-  const staticPages = [
-    { loc: `${SITE_URL}/`, lastmod: now, changefreq: 'weekly', priority: '1.0' },
-    { loc: `${SITE_URL}/blog`, lastmod: now, changefreq: 'daily', priority: '0.9' },
-    { loc: `${SITE_URL}/contact`, lastmod: now, changefreq: 'monthly', priority: '0.5' },
-    { loc: `${SITE_URL}/privacy`, lastmod: now, changefreq: 'yearly', priority: '0.3' },
-    { loc: `${SITE_URL}/terms`, lastmod: now, changefreq: 'yearly', priority: '0.3' },
+  const latestBlogUpdate = latestBlogTimestamp(posts)
+
+  const staticPages: SitemapEntry[] = [
+    { loc: `${SITE_URL}/`, lastmod: latestBlogUpdate, changefreq: 'weekly', priority: '1.0' },
+    { loc: `${SITE_URL}/blog`, lastmod: latestBlogUpdate, changefreq: 'daily', priority: '0.9' },
+    { loc: `${SITE_URL}/contact`, changefreq: 'monthly', priority: '0.5' },
+    { loc: `${SITE_URL}/privacy`, changefreq: 'yearly', priority: '0.3' },
+    { loc: `${SITE_URL}/terms`, changefreq: 'yearly', priority: '0.3' },
   ]
 
-  const postPages = posts.map((post) => ({
+  const postPages: SitemapEntry[] = posts.map((post) => ({
     loc: `${SITE_URL}/blog/${post.slug}`,
-    lastmod: post.created_at || now,
+    lastmod: post.updated_at || post.created_at,
     changefreq: 'monthly',
     priority: '0.8',
   }))
@@ -43,15 +60,14 @@ function buildSitemap(posts: BlogPost[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls
-  .map(
-    (url) => `  <url>
+      .map(
+        (url) => `  <url>
     <loc>${escapeXml(url.loc)}</loc>
-    <lastmod>${escapeXml(url.lastmod)}</lastmod>
-    <changefreq>${url.changefreq}</changefreq>
+${url.lastmod ? `    <lastmod>${escapeXml(url.lastmod)}</lastmod>\n` : ''}    <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
   </url>`
-  )
-  .join('\n')}
+      )
+      .join('\n')}
 </urlset>`
 }
 
