@@ -3,7 +3,7 @@ import Head from 'next/head'
 import { GetServerSideProps } from 'next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, User, ArrowLeft, Send } from 'lucide-react'
+import { Calendar, ArrowLeft, Send } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { getPost, createComment, fixMediaUrl } from '@/lib/api'
@@ -31,6 +31,19 @@ interface PostDetail {
   comments: Comment[]
   meta_title?: string
   meta_description?: string
+}
+
+function stripEditorArtifactsHtml(html: string): string {
+  if (!html) return html
+
+  return html
+    .replace(
+      /<(?:button|span|div)\b[^>]*>\s*<svg\b[^>]*>[\s\S]*?<\/svg>\s*<\/(?:button|span|div)>/gi,
+      ''
+    )
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
@@ -67,10 +80,10 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     })
   }
 
@@ -81,8 +94,8 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
     : `${siteUrl}/assets/logo.png`
   const pageTitle = post.meta_title || post.title
   const pageDescription = post.meta_description || post.excerpt
+  const sanitizedContent = stripEditorArtifactsHtml(post.content || '')
 
-  // Schema.org structured data — static developer-controlled object, safe for JSON.stringify
   const jsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -161,7 +174,7 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
 
           {post.featured_image && (
             <div className="aspect-video relative rounded-2xl overflow-hidden mb-12 shadow-lift">
-              <img 
+              <img
                 src={fixMediaUrl(post.featured_image)!}
                 alt={post.title}
                 className="object-cover w-full h-full"
@@ -169,9 +182,9 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
             </div>
           )}
 
-          <div 
+          <div
             className="prose prose-sm md:prose-lg max-w-none prose-primary prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-primary hover:prose-a:underline"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
 
           <div className="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-2">
@@ -183,7 +196,6 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
           </div>
         </article>
 
-        {/* Comments Section */}
         <section className="mt-20 pt-12 border-t border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-8">
             Comments ({post.comments.length})
@@ -222,8 +234,8 @@ export default function BlogPost({ post: initialPost }: { post: PostDetail }) {
                   onChange={(e) => setComment(e.target.value)}
                   disabled={isSubmitting}
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={isSubmitting}
                   className="bg-primary hover:opacity-90"
                 >
